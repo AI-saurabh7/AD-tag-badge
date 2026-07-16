@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Proof Desk — AD Badge Tool</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --desk: #17140f;
+    --tray-bg: #221d15;
+    --table: #efe9dc;
+    --table-ink: #2a241c;
+    --ink: #7a3b8f;
+    --ink-bright: #9955b3;
+    --text: #e8e2d3;
+    --text-dim: #948c78;
+    --line: #362f22;
+    --font-display: 'Space Grotesk', sans-serif;
+    --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--desk);
+    color: var(--text);
+    font-family: var(--font-body);
+    min-height: 100vh;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ink-bright);
+    outline-offset: 2px;
+  }
+
+  .masthead {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 26px 20px 6px;
+  }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--ink-bright);
+    text-transform: uppercase;
+    margin: 0 0 8px;
+  }
+  .masthead h1 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 24px;
+    letter-spacing: -0.01em;
+    margin: 0 0 6px;
+  }
+  .masthead p {
+    font-size: 13.5px;
+    color: var(--text-dim);
+    margin: 0;
+    max-width: 52ch;
+    line-height: 1.5;
+  }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 18px 20px 48px;
+  }
+  @media (min-width: 860px) {
+    .stage { grid-template-columns: 1.6fr 1fr; align-items: start; }
+  }
+
+  .light-table {
+    position: relative;
+    background: var(--table);
+    border-radius: 3px;
+    padding: 34px 22px;
+    min-height: 260px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: box-shadow .15s ease;
+  }
+  .light-table.drag { box-shadow: 0 0 0 2px var(--ink) inset; }
+  .light-table.loaded { cursor: default; }
+
+  .reg-tick {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--ink);
+    pointer-events: none;
+  }
+  .reg-tick.tl { top: 9px; left: 9px; border-right: none; border-bottom: none; }
+  .reg-tick.tr { top: 9px; right: 9px; border-left: none; border-bottom: none; }
+  .reg-tick.bl { bottom: 9px; left: 9px; border-right: none; border-top: none; }
+  .reg-tick.br { bottom: 9px; right: 9px; border-left: none; border-top: none; }
+
+  #uploadPrompt { text-align: center; color: var(--table-ink); }
+  #uploadPrompt svg { opacity: 0.55; margin-bottom: 10px; }
+  #uploadPrompt .primary { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  #uploadPrompt .secondary { font-size: 12.5px; color: #6b6252; }
+  #fileInput { display: none; }
+
+  #canvas {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 2px;
+  }
+
+  .readout {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--text-dim);
+    padding: 2px 4px;
+  }
+  .readout strong { color: var(--text); font-weight: 500; }
+
+  .tray {
+    background: var(--tray-bg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .tray-label {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin: 0 0 -6px;
+  }
+
+  .field label {
+    display: block;
+    font-family: var(--font-display);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+  .field .sub-label {
+    font-family: var(--font-body);
+    font-weight: 500;
+    font-size: 11.5px;
+    color: var(--text-dim);
+    text-transform: none;
+    margin-bottom: 6px;
+  }
+
+  .presets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .preset-chip {
+    font-family: var(--font-body);
+    font-size: 12px;
+    padding: 5px 11px;
+    background: var(--desk);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    cursor: pointer;
+    color: var(--text);
+  }
+  .preset-chip:hover { border-color: var(--ink); color: var(--ink-bright); }
+
+  input[type=text] {
+    width: 100%;
+    padding: 9px 10px;
+    background: var(--desk);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 14px;
+    font-family: var(--font-body);
+  }
+  input[type=text]:focus { outline: none; border-color: var(--ink); }
+
+  .corner-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .corner-btn {
+    font-family: var(--font-body);
+    padding: 10px 6px;
+    background: var(--desk);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--text-dim);
+    font-size: 12.5px;
+    cursor: pointer;
+    text-align: center;
+  }
+  .corner-btn.active { border-color: var(--ink); color: var(--ink-bright); background: rgba(122,59,143,0.12); }
+
+  input[type=range] { width: 100%; accent-color: var(--ink); }
+  .slider-row {
+    display: flex; justify-content: space-between;
+    font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); margin-top: 4px;
+  }
+
+  .color-row { display: flex; gap: 10px; }
+  .color-field { flex: 1; }
+  input[type=color] {
+    width: 100%; height: 36px;
+    border: 1px solid var(--line); border-radius: 6px;
+    background: var(--desk); cursor: pointer; padding: 2px;
+  }
+
+  select {
+    width: 100%; padding: 9px 10px;
+    background: var(--desk); border: 1px solid var(--line); border-radius: 6px;
+    color: var(--text); font-size: 13.5px; font-family: var(--font-body);
+  }
+  .hint { font-size: 11px; color: var(--text-dim); margin-top: 7px; line-height: 1.5; }
+
+  .btn-primary {
+    width: 100%; padding: 13px;
+    background: var(--ink); border: none; border-radius: 6px;
+    color: #fff; font-size: 14px; font-weight: 700; font-family: var(--font-display);
+    cursor: pointer; transition: background .12s ease, transform .05s ease;
+  }
+  .btn-primary:hover { background: var(--ink-bright); }
+  .btn-primary:active { transform: scale(0.98); }
+  .btn-secondary {
+    width: 100%; padding: 10px;
+    background: transparent; border: 1px solid var(--line); border-radius: 6px;
+    color: var(--text-dim); font-size: 12.5px; font-family: var(--font-body); cursor: pointer;
+  }
+  .btn-secondary:hover { border-color: var(--text-dim); color: var(--text); }
+
+  hr.div { border: none; border-top: 1px solid var(--line); margin: 0; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="masthead">
+  <p class="eyebrow">Creative compliance</p>
+  <h1>Proof Desk</h1>
+  <p>Stamp a disclosure badge onto any creative at full resolution — nothing is resized or recompressed.</p>
+</div>
+
+<div class="stage">
+  <div class="stage-main">
+    <div class="light-table" id="lightTable" tabindex="0" role="button" aria-label="Upload a creative">
+      <span class="reg-tick tl"></span>
+      <span class="reg-tick tr"></span>
+      <span class="reg-tick bl"></span>
+      <span class="reg-tick br"></span>
+
+      <div id="uploadPrompt">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#2a241c" stroke-width="1.5"><path d="M12 16V4M12 4l-4 4M12 4l4 4"/><path d="M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3"/></svg>
+        <div class="primary">Drop a creative here, or click to browse</div>
+        <div class="secondary">PNG, JPG, WEBP — or paste with ⌘V / Ctrl+V</div>
+      </div>
+      <canvas id="canvas" style="display:none"></canvas>
+    </div>
+    <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp">
+    <div class="readout" id="readout" style="display:none"></div>
+  </div>
+
+  <div class="tray" id="tray" style="display:none">
+    <p class="tray-label">Tool tray</p>
+
+    <div class="field">
+      <label for="badgeText">Badge text</label>
+      <div class="presets">
+        <button type="button" class="preset-chip" data-text="AD">AD</button>
+        <button type="button" class="preset-chip" data-text="Sponsored">Sponsored</button>
+        <button type="button" class="preset-chip" data-text="Promoted">Promoted</button>
+        <button type="button" class="preset-chip" data-text="Advertisement">Advertisement</button>
+      </div>
+      <input type="text" id="badgeText" value="AD" maxlength="24">
+    </div>
+
+    <div class="field">
+      <label id="positionLabel">Position</label>
+      <div class="corner-grid" role="group" aria-labelledby="positionLabel">
+        <button type="button" class="corner-btn" data-pos="top-left">↖ Top left</button>
+        <button type="button" class="corner-btn active" data-pos="top-right">↗ Top right</button>
+        <button type="button" class="corner-btn" data-pos="bottom-left">↙ Bottom left</button>
+        <button type="button" class="corner-btn" data-pos="bottom-right">↘ Bottom right</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="sizeSlider">Badge size</label>
+      <input type="range" id="sizeSlider" min="0.5" max="2.5" step="0.05" value="1">
+    </div>
+
+    <div class="field">
+      <label for="marginSlider">Edge spacing</label>
+      <input type="range" id="marginSlider" min="0" max="8" step="0.2" value="3">
+    </div>
+
+    <div class="field">
+      <label>Colors</label>
+      <div class="color-row">
+        <div class="color-field">
+          <p class="sub-label">Background</p>
+          <input type="color" id="bgColor" value="#5f6368">
+        </div>
+        <div class="color-field">
+          <p class="sub-label">Text</p>
+          <input type="color" id="textColor" value="#ffffff">
+        </div>
+      </div>
+    </div>
+
+    <hr class="div">
+
+    <div class="field">
+      <label for="formatSelect">Export format</label>
+      <select id="formatSelect">
+        <option value="png">PNG — lossless (recommended)</option>
+        <option value="jpeg">JPEG — smaller file, high quality</option>
+      </select>
+      <p class="hint">JPEG has no transparency — any transparent areas export as black. Use PNG if your creative has a transparent background.</p>
+    </div>
+
+    <button class="btn-primary" id="downloadBtn">Download image</button>
+    <button class="btn-secondary" id="resetBtn">Choose a different creative</button>
+  </div>
+</div>
+
+<script>
+const lightTable = document.getElementById('lightTable');
+const uploadPrompt = document.getElementById('uploadPrompt');
+const fileInput = document.getElementById('fileInput');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const readout = document.getElementById('readout');
+const tray = document.getElementById('tray');
+
+const badgeTextInput = document.getElementById('badgeText');
+const sizeSlider = document.getElementById('sizeSlider');
+const marginSlider = document.getElementById('marginSlider');
+const bgColorInput = document.getElementById('bgColor');
+const textColorInput = document.getElementById('textColor');
+const formatSelect = document.getElementById('formatSelect');
+const downloadBtn = document.getElementById('downloadBtn');
+const resetBtn = document.getElementById('resetBtn');
+
+let img = new Image();
+let naturalW = 0, naturalH = 0;
+let originalName = 'creative';
+let position = 'top-right';
+
+function roundRectPath(c, x, y, w, h, r) {
+  c.beginPath();
+  c.moveTo(x + r, y);
+  c.arcTo(x + w, y, x + w, y + h, r);
+  c.arcTo(x + w, y + h, x, y + h, r);
+  c.arcTo(x, y + h, x, y, r);
+  c.arcTo(x, y, x + w, y, r);
+  c.closePath();
+}
+
+function loadFile(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  originalName = file.name.replace(/\.[^/.]+$/, '') || 'creative';
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    img = new Image();
+    img.onload = () => {
+      naturalW = img.naturalWidth;
+      naturalH = img.naturalHeight;
+      canvas.width = naturalW;
+      canvas.height = naturalH;
+      uploadPrompt.style.display = 'none';
+      canvas.style.display = 'block';
+      lightTable.classList.add('loaded');
+      readout.style.display = 'block';
+      tray.style.display = 'flex';
+      render();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function render() {
+  if (!naturalW) return;
+  ctx.clearRect(0, 0, naturalW, naturalH);
+  ctx.drawImage(img, 0, 0, naturalW, naturalH);
+  drawBadge();
+  readout.innerHTML = `Original <strong>${naturalW} × ${naturalH}px</strong> &nbsp;→&nbsp; Output <strong>${naturalW} × ${naturalH}px</strong> · no resize · no recompression`;
+}
+
+function drawBadge() {
+  const text = badgeTextInput.value.trim() || 'AD';
+  const scaleMult = parseFloat(sizeSlider.value);
+  const marginPct = parseFloat(marginSlider.value) / 100;
+  const refDim = Math.min(naturalW, naturalH);
+
+  const fontSize = refDim * 0.035 * scaleMult;
+  ctx.font = `700 ${fontSize}px -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`;
+  const textWidth = ctx.measureText(text).width;
+
+  const padX = fontSize * 0.8;
+  const padY = fontSize * 0.55;
+  const badgeW = textWidth + padX * 2;
+  const badgeH = fontSize + padY * 2;
+  const radius = badgeH * 0.25;
+  const margin = refDim * marginPct;
+
+  let x, y;
+  if (position === 'top-right') { x = naturalW - badgeW - margin; y = margin; }
+  else if (position === 'top-left') { x = margin; y = margin; }
+  else if (position === 'bottom-left') { x = margin; y = naturalH - badgeH - margin; }
+  else { x = naturalW - badgeW - margin; y = naturalH - badgeH - margin; }
+
+  ctx.fillStyle = bgColorInput.value;
+  roundRectPath(ctx, x, y, badgeW, badgeH, radius);
+  ctx.fill();
+
+  ctx.fillStyle = textColorInput.value;
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'center';
+  ctx.fillText(text, x + badgeW / 2, y + badgeH / 2 + fontSize * 0.05);
+}
+
+lightTable.addEventListener('click', () => { if (!naturalW) fileInput.click(); });
+lightTable.addEventListener('keydown', (e) => {
+  if (!naturalW && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); fileInput.click(); }
+});
+fileInput.addEventListener('change', (e) => loadFile(e.target.files[0]));
+
+['dragover', 'dragenter'].forEach(evt =>
+  lightTable.addEventListener(evt, (e) => { e.preventDefault(); lightTable.classList.add('drag'); })
+);
+['dragleave', 'drop'].forEach(evt =>
+  lightTable.addEventListener(evt, (e) => { e.preventDefault(); lightTable.classList.remove('drag'); })
+);
+lightTable.addEventListener('drop', (e) => loadFile(e.dataTransfer.files[0]));
+
+document.addEventListener('paste', (e) => {
+  const items = e.clipboardData.items;
+  for (let item of items) {
+    if (item.type.startsWith('image/')) loadFile(item.getAsFile());
+  }
+});
+
+document.querySelectorAll('.preset-chip').forEach(chip => {
+  chip.addEventListener('click', () => { badgeTextInput.value = chip.dataset.text; render(); });
+});
+
+document.querySelectorAll('.corner-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.corner-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    position = btn.dataset.pos;
+    render();
+  });
+});
+
+[badgeTextInput, sizeSlider, marginSlider, bgColorInput, textColorInput].forEach(el => {
+  el.addEventListener('input', render);
+});
+
+downloadBtn.addEventListener('click', () => {
+  const format = formatSelect.value;
+  const mime = format === 'jpeg' ? 'image/jpeg' : 'image/png';
+  const ext = format === 'jpeg' ? 'jpg' : 'png';
+  const quality = format === 'jpeg' ? 0.98 : undefined;
+  const dataUrl = canvas.toDataURL(mime, quality);
+  const link = document.createElement('a');
+  link.download = `${originalName}-ad-badge.${ext}`;
+  link.href = dataUrl;
+  link.click();
+});
+
+resetBtn.addEventListener('click', () => {
+  naturalW = 0; naturalH = 0;
+  fileInput.value = '';
+  uploadPrompt.style.display = 'block';
+  canvas.style.display = 'none';
+  lightTable.classList.remove('loaded');
+  readout.style.display = 'none';
+  tray.style.display = 'none';
+});
+</script>
+</body>
+</html>
