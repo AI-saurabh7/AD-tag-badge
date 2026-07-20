@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Proof Desk — AD Badge Tool</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --desk: #17140f;
+    --tray-bg: #221d15;
+    --table: #efe9dc;
+    --table-ink: #2a241c;
+    --ink: #7a3b8f;
+    --ink-bright: #9955b3;
+    --text: #e8e2d3;
+    --text-dim: #948c78;
+    --line: #362f22;
+    --font-display: 'Space Grotesk', sans-serif;
+    --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--desk);
+    color: var(--text);
+    font-family: var(--font-body);
+    min-height: 100vh;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ink-bright);
+    outline-offset: 2px;
+  }
+
+  .masthead {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 26px 20px 6px;
+  }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--ink-bright);
+    text-transform: uppercase;
+    margin: 0 0 8px;
+  }
+  .masthead h1 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 24px;
+    letter-spacing: -0.01em;
+    margin: 0 0 6px;
+  }
+  .masthead p {
+    font-size: 13.5px;
+    color: var(--text-dim);
+    margin: 0;
+    max-width: 52ch;
+    line-height: 1.5;
+  }
+  .dev-credit {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    opacity: 0.7;
+    margin-top: 8px !important;
+  }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 18px 20px 48px;
+  }
+  @media (min-width: 860px) {
+    .stage { grid-template-columns: 1.6fr 1fr; align-items: start; }
+  }
+
+  .light-table {
+    position: relative;
+    background: var(--table);
+    border-radius: 3px;
+    padding: 34px 22px;
+    min-height: 260px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: box-shadow .15s ease;
+  }
+  .light-table.drag { box-shadow: 0 0 0 2px var(--ink) inset; }
+  .light-table.loaded { cursor: default; }
+
+  .reg-tick {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--ink);
+    pointer-events: none;
+  }
+  .reg-tick.tl { top: 9px; left: 9px; border-right: none; border-bottom: none; }
+  .reg-tick.tr { top: 9px; right: 9px; border-left: none; border-bottom: none; }
+  .reg-tick.bl { bottom: 9px; left: 9px; border-right: none; border-top: none; }
+  .reg-tick.br { bottom: 9px; right: 9px; border-left: none; border-top: none; }
+
+  #uploadPrompt { text-align: center; color: var(--table-ink); }
+  #uploadPrompt svg { opacity: 0.55; margin-bottom: 10px; }
+  #uploadPrompt .primary { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  #uploadPrompt .secondary { font-size: 12.5px; color: #6b6252; }
+  #fileInput { display: none; }
+
+  #canvas {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 2px;
+  }
+
+  .readout {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--text-dim);
+    padding: 2px 4px;
+  }
+  .readout strong { color: var(--text); font-weight: 500; }
+
+  .tray {
+    background: var(--tray-bg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    max-height: 70vh;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--ink) var(--desk);
+  }
+  .tray::-webkit-scrollbar { width: 9px; }
+  .tray::-webkit-scrollbar-track { background: var(--desk); border-radius: 6px; }
+  .tray::-webkit-scrollbar-thumb { background: var(--ink); border-radius: 6px; border: 2px solid var(--tray-bg); }
+  .tray::-webkit-scrollbar-thumb:hover { background: var(--ink-bright); }
+  .tray-label {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin: 0 0 -6px;
+  }
+
+  .field label {
+    display: block;
+    font-family: var(--font-display);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+  .field .sub-label {
+    font-family: var(--font-body);
+    font-weight: 500;
+    font-size: 11.5px;
+    color: var(--text-dim);
+    text-transform: none;
+    margin-bottom: 6px;
+  }
+
+  .presets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .preset-chip {
+    font-family: var(--font-body);
+    font-size: 12px;
+    padding: 5px 11px;
+    background: var(--desk);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    cursor: pointer;
+    color: var(--text);
+  }
+  .preset-chip:hover { border-color: var(--ink); color: var(--ink-bright); }
+
+  input[type=text] {
+    width: 100%;
+    padding: 9px 10px;
+    background: var(--desk);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 14px;
+    font-family: var(--font-body);
+  }
+  input[type=text]:focus { outline: none; border-color: var(--ink); }
+
+  .corner-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .corner-btn {
+    font-family: var(--font-body);
+    padding: 10px 6px;
+    background: var(--desk);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--text-dim);
+    font-size: 12.5px;
+    cursor: pointer;
+    text-align: center;
+  }
+  .corner-btn.active { border-color: var(--ink); color: var(--ink-bright); background: rgba(122,59,143,0.12); }
+
+  input[type=range] { width: 100%; accent-color: var(--ink); }
+  .slider-row { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); margin-top: 4px; }
+  .slider-row .value { color: var(--ink-bright); font-weight: 600; }
+
+  .color-row { display: flex; gap: 10px; }
+  .color-field { flex: 1; }
+  input[type=color] {
+    width: 100%; height: 36px;
+    border: 1px solid var(--line); border-radius: 6px;
+    background: var(--desk); cursor: pointer; padding: 2px;
+  }
+
+  select {
+    width: 100%; padding: 9px 10px;
+    background: var(--desk); border: 1px solid var(--line); border-radius: 6px;
+    color: var(--text); font-size: 13.5px; font-family: var(--font-body);
+  }
+  .hint { font-size: 11px; color: var(--text-dim); margin-top: 7px; line-height: 1.5; }
+
+  .btn-primary {
+    width: 100%; padding: 13px;
+    background: var(--ink); border: none; border-radius: 6px;
+    color: #fff; font-size: 14px; font-weight: 700; font-family: var(--font-display);
+    cursor: pointer; transition: background .12s ease, transform .05s ease;
+  }
+  .btn-primary:hover { background: var(--ink-bright); }
+  .btn-primary:active { transform: scale(0.98); }
+  .btn-secondary {
+    width: 100%; padding: 10px;
+    background: transparent; border: 1px solid var(--line); border-radius: 6px;
+    color: var(--text-dim); font-size: 12.5px; font-family: var(--font-body); cursor: pointer;
+  }
+  .btn-secondary:hover { border-color: var(--text-dim); color: var(--text); }
+
+  hr.div { border: none; border-top: 1px solid var(--line); margin: 0; }
+
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    font-family: var(--font-display);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 0;
+  }
+  .toggle-switch { position: relative; display: inline-block; width: 38px; height: 22px; flex-shrink: 0; }
+  .toggle-switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+  .toggle-slider {
+    position: absolute; inset: 0;
+    background: var(--desk);
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    transition: background .15s ease, border-color .15s ease;
+    pointer-events: none;
+  }
+  .toggle-slider::before {
+    content: "";
+    position: absolute;
+    width: 16px; height: 16px;
+    left: 2px; top: 2px;
+    background: var(--text-dim);
+    border-radius: 50%;
+    transition: transform .15s ease, background .15s ease;
+  }
+  .toggle-switch input:checked + .toggle-slider { background: rgba(122,59,143,0.25); border-color: var(--ink); }
+  .toggle-switch input:checked + .toggle-slider::before { transform: translateX(16px); background: var(--ink-bright); }
+  .toggle-switch input:focus-visible + .toggle-slider { outline: 2px solid var(--ink-bright); outline-offset: 2px; }
+
+  .cta-fields { display: flex; flex-direction: column; gap: 18px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="masthead">
+  <p class="eyebrow">Creative editing tool</p>
+  <h1>Proof Desk</h1>
+  <p>Stamp a disclosure badge — and an optional CTA button — onto any creative at full resolution, nothing is resized or recompressed.</p>
+  <p class="dev-credit">Developed by Saurabh Yadav</p>
+</div>
+
+<div class="stage">
+  <div class="stage-main">
+    <div class="light-table" id="lightTable" tabindex="0" role="button" aria-label="Upload a creative">
+      <span class="reg-tick tl"></span>
+      <span class="reg-tick tr"></span>
+      <span class="reg-tick bl"></span>
+      <span class="reg-tick br"></span>
+
+      <div id="uploadPrompt">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#2a241c" stroke-width="1.5"><path d="M12 16V4M12 4l-4 4M12 4l4 4"/><path d="M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3"/></svg>
+        <div class="primary">Drop a creative here, or click to browse</div>
+        <div class="secondary">PNG, JPG, WEBP — or paste with ⌘V / Ctrl+V</div>
+      </div>
+      <canvas id="canvas" style="display:none"></canvas>
+    </div>
+    <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp">
+    <div class="readout" id="readout" style="display:none"></div>
+  </div>
+
+  <div class="tray" id="tray" style="display:none">
+    <p class="tray-label">Tool tray</p>
+
+    <div class="field">
+      <label for="badgeText">Badge text</label>
+      <div class="presets">
+        <button type="button" class="preset-chip" data-text="AD">AD</button>
+        <button type="button" class="preset-chip" data-text="Sponsored">Sponsored</button>
+        <button type="button" class="preset-chip" data-text="Promoted">Promoted</button>
+        <button type="button" class="preset-chip" data-text="Advertisement">Advertisement</button>
+      </div>
+      <input type="text" id="badgeText" value="AD" maxlength="24">
+    </div>
+
+    <div class="field">
+      <label id="positionLabel">Badge position</label>
+      <div class="corner-grid" id="badgePositionGrid" role="group" aria-labelledby="positionLabel">
+        <button type="button" class="corner-btn" data-pos="top-left">↖ Top left</button>
+        <button type="button" class="corner-btn active" data-pos="top-right">↗ Top right</button>
+        <button type="button" class="corner-btn" data-pos="bottom-left">↙ Bottom left</button>
+        <button type="button" class="corner-btn" data-pos="bottom-right">↘ Bottom right</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="sizeSlider">Badge size</label>
+      <input type="range" id="sizeSlider" min="0.5" max="2.5" step="0.05" value="1">
+    </div>
+
+    <div class="field">
+      <label for="marginSlider">Edge spacing</label>
+      <input type="range" id="marginSlider" min="0" max="8" step="0.2" value="3">
+      <p class="hint">Applies to the badge, and to the CTA's corner presets.</p>
+    </div>
+
+    <div class="field">
+      <label>Badge colors</label>
+      <div class="color-row">
+        <div class="color-field">
+          <p class="sub-label">Background</p>
+          <input type="color" id="bgColor" value="#5f6368">
+        </div>
+        <div class="color-field">
+          <p class="sub-label">Text</p>
+          <input type="color" id="textColor" value="#ffffff">
+        </div>
+      </div>
+    </div>
+
+    <hr class="div">
+
+    <div class="field">
+      <label class="toggle-row" for="ctaToggle">
+        <span>CTA button</span>
+        <span class="toggle-switch">
+          <input type="checkbox" id="ctaToggle">
+          <span class="toggle-slider"></span>
+        </span>
+      </label>
+    </div>
+
+    <div class="cta-fields" id="ctaFields" style="display:none">
+      <div class="field">
+        <label for="ctaText">CTA text</label>
+        <div class="presets">
+          <button type="button" class="preset-chip" data-cta-text="Shop Now">Shop Now</button>
+          <button type="button" class="preset-chip" data-cta-text="Learn More">Learn More</button>
+          <button type="button" class="preset-chip" data-cta-text="Sign Up">Sign Up</button>
+          <button type="button" class="preset-chip" data-cta-text="Get Started">Get Started</button>
+        </div>
+        <input type="text" id="ctaText" value="Shop Now" maxlength="24">
+      </div>
+
+      <div class="field">
+        <label id="ctaPositionLabel">CTA position</label>
+        <div class="corner-grid" id="ctaPositionGrid" role="group" aria-labelledby="ctaPositionLabel">
+          <button type="button" class="corner-btn" data-pos="top-left">↖ Top left</button>
+          <button type="button" class="corner-btn" data-pos="top-right">↗ Top right</button>
+          <button type="button" class="corner-btn" data-pos="bottom-left">↙ Bottom left</button>
+          <button type="button" class="corner-btn active" data-pos="bottom-right">↘ Bottom right</button>
+        </div>
+        <p class="hint">Or drag the CTA directly on the image — the corners above are just quick snaps.</p>
+      </div>
+
+      <div class="field">
+        <label for="ctaXSlider">Horizontal position</label>
+        <input type="range" id="ctaXSlider" min="0" max="100" step="1" value="82">
+        <div class="slider-row"><span>0%</span><span class="value" id="ctaXReadout">82%</span><span>100%</span></div>
+      </div>
+
+      <div class="field">
+        <label for="ctaYSlider">Vertical position</label>
+        <input type="range" id="ctaYSlider" min="0" max="100" step="1" value="88">
+        <div class="slider-row"><span>0%</span><span class="value" id="ctaYReadout">88%</span><span>100%</span></div>
+      </div>
+
+      <div class="field">
+        <label for="ctaSizeSlider">CTA size</label>
+        <input type="range" id="ctaSizeSlider" min="0.5" max="2.5" step="0.05" value="1.3">
+      </div>
+
+      <div class="field">
+        <label>CTA colors</label>
+        <div class="color-row">
+          <div class="color-field">
+            <p class="sub-label">Background</p>
+            <input type="color" id="ctaBgColor" value="#7a3b8f">
+          </div>
+          <div class="color-field">
+            <p class="sub-label">Text</p>
+            <input type="color" id="ctaTextColor" value="#ffffff">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="div">
+
+    <div class="field">
+      <label for="formatSelect">Export format</label>
+      <select id="formatSelect">
+        <option value="png">PNG — lossless (recommended)</option>
+        <option value="jpeg">JPEG — smaller file, high quality</option>
+      </select>
+      <p class="hint">JPEG has no transparency — any transparent areas export as black. Use PNG if your creative has a transparent background.</p>
+    </div>
+
+    <button class="btn-primary" id="downloadBtn">Download image</button>
+    <button class="btn-secondary" id="resetBtn">Choose a different creative</button>
+  </div>
+</div>
+
+<script>
+const lightTable = document.getElementById('lightTable');
+const uploadPrompt = document.getElementById('uploadPrompt');
+const fileInput = document.getElementById('fileInput');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const readout = document.getElementById('readout');
+const tray = document.getElementById('tray');
+
+const badgeTextInput = document.getElementById('badgeText');
+const sizeSlider = document.getElementById('sizeSlider');
+const marginSlider = document.getElementById('marginSlider');
+const bgColorInput = document.getElementById('bgColor');
+const textColorInput = document.getElementById('textColor');
+const formatSelect = document.getElementById('formatSelect');
+const downloadBtn = document.getElementById('downloadBtn');
+const resetBtn = document.getElementById('resetBtn');
+
+const ctaToggle = document.getElementById('ctaToggle');
+const ctaFields = document.getElementById('ctaFields');
+const ctaTextInput = document.getElementById('ctaText');
+const ctaXSlider = document.getElementById('ctaXSlider');
+const ctaYSlider = document.getElementById('ctaYSlider');
+const ctaXReadout = document.getElementById('ctaXReadout');
+const ctaYReadout = document.getElementById('ctaYReadout');
+const ctaSizeSlider = document.getElementById('ctaSizeSlider');
+const ctaBgColorInput = document.getElementById('ctaBgColor');
+const ctaTextColorInput = document.getElementById('ctaTextColor');
+
+let img = new Image();
+let naturalW = 0, naturalH = 0;
+let originalName = 'creative';
+let position = 'top-right';
+let ctaPos = { xPct: 0.82, yPct: 0.88 }; // center of the CTA, as a fraction of image size
+let ctaInitialized = false;
+let lastCtaBox = null; // last-drawn CTA bounding box, for hit-testing drags
+let ctaDragOffset = null; // { dx, dy } from box center to grab point while dragging
+
+function clamp01(v) { return Math.min(1, Math.max(0, v)); }
+
+function roundRectPath(c, x, y, w, h, r) {
+  c.beginPath();
+  c.moveTo(x + r, y);
+  c.arcTo(x + w, y, x + w, y + h, r);
+  c.arcTo(x + w, y + h, x, y + h, r);
+  c.arcTo(x, y + h, x, y, r);
+  c.arcTo(x, y, x + w, y, r);
+  c.closePath();
+}
+
+function loadFile(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  originalName = file.name.replace(/\.[^/.]+$/, '') || 'creative';
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    img = new Image();
+    img.onload = () => {
+      naturalW = img.naturalWidth;
+      naturalH = img.naturalHeight;
+      canvas.width = naturalW;
+      canvas.height = naturalH;
+      uploadPrompt.style.display = 'none';
+      canvas.style.display = 'block';
+      lightTable.classList.add('loaded');
+      readout.style.display = 'block';
+      tray.style.display = 'flex';
+      render();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function render() {
+  if (!naturalW) return;
+  ctx.clearRect(0, 0, naturalW, naturalH);
+  ctx.drawImage(img, 0, 0, naturalW, naturalH);
+  drawOverlays();
+  readout.innerHTML = `Original <strong>${naturalW} × ${naturalH}px</strong> &nbsp;→&nbsp; Output <strong>${naturalW} × ${naturalH}px</strong> · no resize · no recompression`;
+}
+
+function measureTag(text, fontSize) {
+  ctx.font = `700 ${fontSize}px -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`;
+  const textWidth = ctx.measureText(text).width;
+  const padX = fontSize * 0.8;
+  const padY = fontSize * 0.55;
+  return { w: textWidth + padX * 2, h: fontSize + padY * 2 };
+}
+
+function paintTag(text, fontSize, x, y, w, h, bgColor, textColor) {
+  ctx.font = `700 ${fontSize}px -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`;
+  ctx.fillStyle = bgColor;
+  roundRectPath(ctx, x, y, w, h, h * 0.25);
+  ctx.fill();
+
+  ctx.fillStyle = textColor;
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'center';
+  ctx.fillText(text, x + w / 2, y + h / 2 + fontSize * 0.05);
+}
+
+function cornerBoxFor(pos, w, h, margin) {
+  let x, y;
+  if (pos === 'top-right') { x = naturalW - w - margin; y = margin; }
+  else if (pos === 'top-left') { x = margin; y = margin; }
+  else if (pos === 'bottom-left') { x = margin; y = naturalH - h - margin; }
+  else { x = naturalW - w - margin; y = naturalH - h - margin; }
+  return { x, y };
+}
+
+function drawBadgeTag() {
+  const refDim = Math.min(naturalW, naturalH);
+  const text = badgeTextInput.value.trim() || 'AD';
+  const fontSize = refDim * 0.035 * parseFloat(sizeSlider.value);
+  const { w, h } = measureTag(text, fontSize);
+  const margin = refDim * (parseFloat(marginSlider.value) / 100);
+  const { x, y } = cornerBoxFor(position, w, h, margin);
+
+  paintTag(text, fontSize, x, y, w, h, bgColorInput.value, textColorInput.value);
+  return { x, y, w, h };
+}
+
+// Snaps the CTA to a named corner, nudging it clear of the badge if they'd land in the same spot.
+// This only sets the stored position once — after this, the CTA can be dragged or slid freely.
+function setCtaToCorner(cornerName) {
+  if (!naturalW) return;
+  const refDim = Math.min(naturalW, naturalH);
+  const text = ctaTextInput.value.trim() || 'Shop Now';
+  const fontSize = refDim * 0.04 * parseFloat(ctaSizeSlider.value);
+  const { w, h } = measureTag(text, fontSize);
+  const margin = refDim * (parseFloat(marginSlider.value) / 100);
+  let { x, y } = cornerBoxFor(cornerName, w, h, margin);
+
+  if (cornerName === position) {
+    const badgeFontSize = refDim * 0.035 * parseFloat(sizeSlider.value);
+    const badgeH = measureTag(badgeTextInput.value.trim() || 'AD', badgeFontSize).h;
+    const gap = refDim * 0.015;
+    if (cornerName.startsWith('top')) y += badgeH + gap;
+    else y -= badgeH + gap;
+  }
+
+  ctaPos = { xPct: (x + w / 2) / naturalW, yPct: (y + h / 2) / naturalH };
+  syncCtaPositionUI();
+}
+
+// Computes the CTA's current pixel box from ctaPos, keeping it fully inside the canvas.
+function ctaBoxNow() {
+  const refDim = Math.min(naturalW, naturalH);
+  const text = ctaTextInput.value.trim() || 'Shop Now';
+  const fontSize = refDim * 0.04 * parseFloat(ctaSizeSlider.value);
+  const { w, h } = measureTag(text, fontSize);
+
+  const cx = Math.min(Math.max(ctaPos.xPct * naturalW, w / 2), naturalW - w / 2);
+  const cy = Math.min(Math.max(ctaPos.yPct * naturalH, h / 2), naturalH - h / 2);
+
+  return { text, fontSize, x: cx - w / 2, y: cy - h / 2, w, h };
+}
+
+function drawCtaTag() {
+  const box = ctaBoxNow();
+  paintTag(box.text, box.fontSize, box.x, box.y, box.w, box.h, ctaBgColorInput.value, ctaTextColorInput.value);
+  return box;
+}
+
+function drawOverlays() {
+  drawBadgeTag();
+  lastCtaBox = ctaToggle.checked ? drawCtaTag() : null;
+}
+
+function syncCtaPositionUI() {
+  const xPctRounded = Math.round(ctaPos.xPct * 100);
+  const yPctRounded = Math.round(ctaPos.yPct * 100);
+  ctaXSlider.value = xPctRounded;
+  ctaYSlider.value = yPctRounded;
+  ctaXReadout.textContent = `${xPctRounded}%`;
+  ctaYReadout.textContent = `${yPctRounded}%`;
+}
+
+function clearActiveCtaCorner() {
+  document.getElementById('ctaPositionGrid').querySelectorAll('.corner-btn').forEach(b => b.classList.remove('active'));
+}
+
+// --- Drag-to-reposition the CTA directly on the canvas ---
+function canvasPointFromEvent(e) {
+  const rect = canvas.getBoundingClientRect();
+  const t = e.touches && e.touches[0];
+  const clientX = t ? t.clientX : e.clientX;
+  const clientY = t ? t.clientY : e.clientY;
+  return {
+    x: (clientX - rect.left) * (naturalW / rect.width),
+    y: (clientY - rect.top) * (naturalH / rect.height)
+  };
+}
+
+function pointInBox(pt, box) {
+  return !!box && pt.x >= box.x && pt.x <= box.x + box.w && pt.y >= box.y && pt.y <= box.y + box.h;
+}
+
+function updateCtaHoverCursor(e) {
+  if (!ctaToggle.checked || !lastCtaBox) { canvas.style.cursor = ''; return; }
+  canvas.style.cursor = pointInBox(canvasPointFromEvent(e), lastCtaBox) ? 'grab' : '';
+}
+
+function startCtaDrag(e) {
+  if (!ctaToggle.checked || !lastCtaBox) return;
+  const pt = canvasPointFromEvent(e);
+  if (!pointInBox(pt, lastCtaBox)) return;
+  e.preventDefault();
+  ctaDragOffset = {
+    dx: pt.x - (lastCtaBox.x + lastCtaBox.w / 2),
+    dy: pt.y - (lastCtaBox.y + lastCtaBox.h / 2)
+  };
+  canvas.style.cursor = 'grabbing';
+}
+
+function performCtaDrag(e) {
+  e.preventDefault();
+  const pt = canvasPointFromEvent(e);
+  ctaPos = {
+    xPct: clamp01((pt.x - ctaDragOffset.dx) / naturalW),
+    yPct: clamp01((pt.y - ctaDragOffset.dy) / naturalH)
+  };
+  syncCtaPositionUI();
+  clearActiveCtaCorner();
+  render();
+}
+
+function endCtaDrag() {
+  if (!ctaDragOffset) return;
+  ctaDragOffset = null;
+  canvas.style.cursor = 'grab';
+}
+
+lightTable.addEventListener('click', () => { if (!naturalW) fileInput.click(); });
+lightTable.addEventListener('keydown', (e) => {
+  if (!naturalW && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); fileInput.click(); }
+});
+fileInput.addEventListener('change', (e) => loadFile(e.target.files[0]));
+
+['dragover', 'dragenter'].forEach(evt =>
+  lightTable.addEventListener(evt, (e) => { e.preventDefault(); lightTable.classList.add('drag'); })
+);
+['dragleave', 'drop'].forEach(evt =>
+  lightTable.addEventListener(evt, (e) => { e.preventDefault(); lightTable.classList.remove('drag'); })
+);
+lightTable.addEventListener('drop', (e) => loadFile(e.dataTransfer.files[0]));
+
+document.addEventListener('paste', (e) => {
+  const items = e.clipboardData.items;
+  for (let item of items) {
+    if (item.type.startsWith('image/')) loadFile(item.getAsFile());
+  }
+});
+
+document.querySelectorAll('.preset-chip[data-text]').forEach(chip => {
+  chip.addEventListener('click', () => { badgeTextInput.value = chip.dataset.text; render(); });
+});
+document.querySelectorAll('.preset-chip[data-cta-text]').forEach(chip => {
+  chip.addEventListener('click', () => { ctaTextInput.value = chip.dataset.ctaText; render(); });
+});
+
+function setupCornerGrid(grid, onSelect) {
+  grid.querySelectorAll('.corner-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      grid.querySelectorAll('.corner-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      onSelect(btn.dataset.pos);
+    });
+  });
+}
+setupCornerGrid(document.getElementById('badgePositionGrid'), (pos) => { position = pos; render(); });
+setupCornerGrid(document.getElementById('ctaPositionGrid'), (pos) => { setCtaToCorner(pos); render(); });
+
+[badgeTextInput, sizeSlider, marginSlider, bgColorInput, textColorInput].forEach(el => {
+  el.addEventListener('input', render);
+});
+
+ctaToggle.addEventListener('change', () => {
+  ctaFields.style.display = ctaToggle.checked ? 'flex' : 'none';
+  if (ctaToggle.checked && !ctaInitialized) {
+    setCtaToCorner('bottom-right');
+    ctaInitialized = true;
+  }
+  canvas.style.cursor = ctaToggle.checked ? 'grab' : '';
+  render();
+});
+
+[ctaTextInput, ctaSizeSlider, ctaBgColorInput, ctaTextColorInput].forEach(el => {
+  el.addEventListener('input', render);
+});
+
+[ctaXSlider, ctaYSlider].forEach(el => {
+  el.addEventListener('input', () => {
+    ctaPos = { xPct: parseFloat(ctaXSlider.value) / 100, yPct: parseFloat(ctaYSlider.value) / 100 };
+    ctaXReadout.textContent = `${ctaXSlider.value}%`;
+    ctaYReadout.textContent = `${ctaYSlider.value}%`;
+    clearActiveCtaCorner();
+    render();
+  });
+});
+
+canvas.addEventListener('mousedown', startCtaDrag);
+canvas.addEventListener('mousemove', (e) => { if (!ctaDragOffset) updateCtaHoverCursor(e); });
+canvas.addEventListener('mouseleave', () => { if (!ctaDragOffset) canvas.style.cursor = ''; });
+document.addEventListener('mousemove', (e) => { if (ctaDragOffset) performCtaDrag(e); });
+document.addEventListener('mouseup', endCtaDrag);
+
+canvas.addEventListener('touchstart', startCtaDrag, { passive: false });
+document.addEventListener('touchmove', (e) => { if (ctaDragOffset) performCtaDrag(e); }, { passive: false });
+document.addEventListener('touchend', endCtaDrag);
+
+downloadBtn.addEventListener('click', () => {
+  const format = formatSelect.value;
+  const mime = format === 'jpeg' ? 'image/jpeg' : 'image/png';
+  const ext = format === 'jpeg' ? 'jpg' : 'png';
+  const quality = format === 'jpeg' ? 0.98 : undefined;
+  const dataUrl = canvas.toDataURL(mime, quality);
+  const suffix = ctaToggle.checked ? 'ad-badge-cta' : 'ad-badge';
+  const link = document.createElement('a');
+  link.download = `${originalName}-${suffix}.${ext}`;
+  link.href = dataUrl;
+  link.click();
+});
+
+resetBtn.addEventListener('click', () => {
+  naturalW = 0; naturalH = 0;
+  fileInput.value = '';
+  uploadPrompt.style.display = 'block';
+  canvas.style.display = 'none';
+  lightTable.classList.remove('loaded');
+  readout.style.display = 'none';
+  tray.style.display = 'none';
+});
+</script>
+</body>
+</html>
